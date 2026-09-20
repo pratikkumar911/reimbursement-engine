@@ -2,7 +2,7 @@ const Settlement = require('../models/Settlement');
 const TravelRequest = require('../models/TravelRequest');
 const { evaluateSettlement } = require('../services/policyService');
 const { computeApprovalChain, applyDecision } = require('../services/approvalService');
-const { SETTLEMENT_WINDOW_DAYS } = require('../config/policy');
+const { SETTLEMENT_WINDOW_DAYS, MEAL_BILL_THRESHOLD } = require('../config/policy');
 
 async function nextId() {
   const count = await Settlement.countDocuments();
@@ -103,7 +103,10 @@ exports.submit = async (req, res) => {
   const missingProof =
     settlement.lodging.some(l => !l.proofRef) ||
     settlement.transportation.some(l => !l.proofRef) ||
-    settlement.otherExpenses.some(l => !l.proofRef);
+    settlement.otherExpenses.some(l => {
+      const text = `${l.head || ''} ${l.description || ''}`.toLowerCase();
+      return !l.proofRef && (!text.includes('meal') || (l.amount || 0) > MEAL_BILL_THRESHOLD);
+    });
   if (missingProof) {
     return res.status(400).json({ message: 'Every claim line needs a proof reference' });
   }

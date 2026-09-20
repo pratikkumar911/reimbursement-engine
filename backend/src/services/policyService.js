@@ -1,6 +1,7 @@
 const {
   LODGING_LIMIT,
   MEAL_LIMIT_PER_DAY,
+  MEAL_BILL_THRESHOLD,
   NON_REIMBURSABLE
 } = require('../config/policy');
 
@@ -51,10 +52,16 @@ function evaluateSettlement(settlement, travelRequest) {
 
   // --- Other ---
   for (const line of settlement.otherExpenses || []) {
-    if (!line.proofRef) { flags.push(`Missing proof: ${line.head || 'other'}`); continue; }
-    checkDuplicate(seenProof, line.proofRef, flags);
-
     const text = `${line.head || ''} ${line.description || ''}`.toLowerCase();
+    const isMeal = text.includes('meal');
+    const requiresMealProof = isMeal && (line.amount || 0) > MEAL_BILL_THRESHOLD;
+
+    if (!line.proofRef && (!isMeal || requiresMealProof)) {
+      flags.push(`Missing proof: ${line.head || 'other'}`);
+      continue;
+    }
+    if (line.proofRef) checkDuplicate(seenProof, line.proofRef, flags);
+
     const isNonReimbursable = NON_REIMBURSABLE.some(k => text.includes(k));
 
     if (isNonReimbursable) {
@@ -70,7 +77,7 @@ function evaluateSettlement(settlement, travelRequest) {
     }
 
     // Meal cap
-    if (text.includes('meal')) {
+    if (isMeal) {
       const tier = settlement.cityTier || 'Tier 1';
       const cap = MEAL_LIMIT_PER_DAY[tier] || 1000;
       const excess = Math.max(0, (line.amount || 0) - cap);
