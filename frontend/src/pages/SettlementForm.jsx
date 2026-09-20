@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import StatusBadge from '../components/StatusBadge';
 import ApprovalTimeline from '../components/ApprovalTimeline';
@@ -19,9 +19,11 @@ const emptyOther = () => ({
 
 export default function SettlementForm() {
   const { travelRequestId, id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const wantsEdit = Boolean(id && searchParams.get('edit') === '1');
 
-  const [mode, setMode] = useState(id ? 'view' : 'new'); // 'view' | 'new' | 'edit'
+  const [mode, setMode] = useState(wantsEdit ? 'edit' : id ? 'view' : 'new'); // 'view' | 'new' | 'edit'
   const [settlement, setSettlement] = useState(null);
   const [travelRequest, setTravelRequest] = useState(null);
   const [lodging, setLodging] = useState([emptyLodging()]);
@@ -29,21 +31,42 @@ export default function SettlementForm() {
   const [other, setOther] = useState([emptyOther()]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(Boolean(id || travelRequestId));
 
   // Load settlement (view/edit) or travel request (new)
   useEffect(() => {
+    let active = true;
+
     if (id) {
       api.get(`/settlements/${id}`).then(async (res) => {
+        if (!active) return;
         setSettlement(res.data);
+        if (wantsEdit && ['Draft', 'Returned'].includes(res.data.status)) {
+          setLodging(res.data.lodging?.length ? res.data.lodging : [emptyLodging()]);
+          setTransport(res.data.transportation?.length ? res.data.transportation : [emptyTransport()]);
+          setOther(res.data.otherExpenses?.length ? res.data.otherExpenses : [emptyOther()]);
+        }
         try {
           const tr = await api.get(`/travel-requests/${res.data.travelRequest}`);
-          setTravelRequest(tr.data);
+          if (active) setTravelRequest(tr.data);
         } catch { /* optional */ }
+      }).catch((err) => {
+        if (active) setError(err.response?.data?.message || 'Failed to load settlement');
+      }).finally(() => {
+        if (active) setLoading(false);
       });
     } else if (travelRequestId) {
-      api.get(`/travel-requests/${travelRequestId}`).then(r => setTravelRequest(r.data));
+      api.get(`/travel-requests/${travelRequestId}`).then(r => {
+        if (active) setTravelRequest(r.data);
+      }).catch((err) => {
+        if (active) setError(err.response?.data?.message || 'Failed to load travel request');
+      }).finally(() => {
+        if (active) setLoading(false);
+      });
     }
-  }, [id, travelRequestId]);
+
+    return () => { active = false; };
+  }, [id, travelRequestId, wantsEdit]);
 
   const updateRow = (setter, idx, key, value) =>
     setter(prev => prev.map((row, i) => i === idx ? { ...row, [key]: value } : row));
@@ -104,6 +127,12 @@ export default function SettlementForm() {
   };
 
   // ---------- VIEW MODE ----------
+  if (loading) return <div className="muted">Loading settlement…</div>;
+
+  if (error && !settlement && !travelRequest) {
+    return <div className="error">{error}</div>;
+  }
+
   if (mode === 'view' && settlement) {
     const t = settlement.totals || {};
     const canEdit = ['Draft', 'Returned'].includes(settlement.status);
@@ -279,6 +308,13 @@ export default function SettlementForm() {
         <div className="flags">
           <strong>Returned by {lastReturn.approverName || lastReturn.role}</strong>
           <div style={{ marginTop: 4 }}>{lastReturn.remarks || 'No remarks provided.'}</div>
+        </div>
+      )}
+
+      {settlement?.flags?.length > 0 && (
+        <div className="flags">
+          <strong>Flags</strong>
+          <ul>{settlement.flags.map((flag, index) => <li key={index}>{flag}</li>)}</ul>
         </div>
       )}
 

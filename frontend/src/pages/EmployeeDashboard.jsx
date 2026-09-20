@@ -118,7 +118,7 @@ export default function EmployeeDashboard() {
                       )}
                     </td>
                     <td>
-                      <Link to={`/settlements/${s._id}`}>
+                      <Link to={editable ? `/settlements/${s._id}?edit=1` : `/settlements/${s._id}`}>
                         <button className="secondary">
                           {editable ? 'Open / Edit' : 'View'}
                         </button>
