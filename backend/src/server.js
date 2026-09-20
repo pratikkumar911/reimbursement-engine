@@ -17,10 +17,10 @@ app.use(cookieParser());
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/travel-requests', require('./routes/travelRequestRoutes'));
-app.use('/api/settlements', require('./routes/settlementRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/auth', require('./routes/authRoutes'));
+app.use('/travel-requests', require('./routes/travelRequestRoutes'));
+app.use('/settlements', require('./routes/settlementRoutes'));
+app.use('/admin', require('./routes/adminRoutes'));
 
 app.use((err, req, res, next) => {
   console.error(err);

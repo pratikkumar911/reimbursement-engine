@@ -23,5 +23,5 @@ npm run dev      # http://localhost:5000
 cd frontend
 npm install
 # create .env with:
-#   API_URL=http://localhost:5000/api
+#   VITE_API_URL=http://localhost:5000
 npm run dev      # http://localhost:5173
