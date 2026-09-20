@@ -40,6 +40,16 @@ exports.create = async (req, res) => {
       return res.status(400).json({ message: 'Travel request not approved yet' });
     }
 
+    const existingSettlement = await Settlement.findOne({
+      travelRequest: tr._id,
+      status: { $in: ['Draft', 'Pending', 'Verified', 'Paid', 'Returned'] }
+    });
+    if (existingSettlement) {
+      return res.status(400).json({
+        message: `A settlement already exists for this travel request (${existingSettlement.settlementId}). Edit that one instead.`
+      });
+    }
+
     const settlement = new Settlement({
       settlementId: await nextId(),
       travelRequest: tr._id,

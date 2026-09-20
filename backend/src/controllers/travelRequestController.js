@@ -1,4 +1,5 @@
 const TravelRequest = require('../models/TravelRequest');
+const Settlement = require('../models/Settlement');
 const { computeApprovalChain, applyDecision } = require('../services/approvalService');
 const { ADVANCE_PERCENT } = require('../config/policy');
 
@@ -94,7 +95,21 @@ exports.submit = async (req, res) => {
 exports.list = async (req, res) => {
   const filter = {};
   if (req.user.role === 'Employee') filter.employee = req.user._id;
-  const list = await TravelRequest.find(filter).sort({ createdAt: -1 });
+  const list = await TravelRequest.find(filter).sort({ createdAt: -1 }).lean();
+
+  if (req.user.role === 'Employee') {
+    const settlements = await Settlement.find({
+      travelRequest: { $in: list.map(tr => tr._id) }
+    }).select('travelRequest').lean();
+    const settledTravelRequestIds = new Set(
+      settlements.map(settlement => settlement.travelRequest.toString())
+    );
+    return res.json(list.map(tr => ({
+      ...tr,
+      hasSettlement: settledTravelRequestIds.has(tr._id.toString())
+    })));
+  }
+
   res.json(list);
 };
 

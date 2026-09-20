@@ -48,7 +48,12 @@ export default function EmployeeDashboard() {
               {requests.map(r => {
                 const note = lastRemark(r);
                 const editable = ['Draft', 'Returned'].includes(r.status);
-                const canSettle = r.status === 'Approved';
+                const existingSettlement = settlements.find(s =>
+                  s.travelRequest === r._id || s.travelRequest?._id === r._id
+                );
+                const canSettle = r.status === 'Approved' && !r.hasSettlement;
+                const canEditSettlement = r.status === 'Approved' && r.hasSettlement &&
+                  existingSettlement && ['Returned', 'Draft'].includes(existingSettlement.status);
                 return (
                   <tr key={r._id}>
                     <td>{r.requestId}</td>
@@ -76,6 +81,16 @@ export default function EmployeeDashboard() {
                         <Link to={`/settlements/new/${r._id}`}>
                           <button className="secondary">Settle</button>
                         </Link>
+                      )}
+                      {r.status === 'Approved' && r.hasSettlement && (
+                        <>
+                          <span className="muted">Settlement filed</span>
+                          {canEditSettlement && (
+                            <Link to={`/settlements/${existingSettlement._id}?edit=1`}>
+                              <button className="secondary">Open / Edit</button>
+                            </Link>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>
